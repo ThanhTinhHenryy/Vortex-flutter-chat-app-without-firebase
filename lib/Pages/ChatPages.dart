@@ -19,11 +19,32 @@ class _ChatPagesState extends State<ChatPages> {
       icon: 'person.png',
     ),
     ChatModel(
-      name: 'Yarushi 2',
+      name: 'Thanh Tinh',
       isGroup: false,
-      currentMessage: "Hello",
-      time: "3:00",
+      currentMessage: "whats up",
+      time: "7:00",
       icon: 'person.png',
+    ),
+    ChatModel(
+      name: 'puu',
+      isGroup: false,
+      currentMessage: "mun bu",
+      time: "2:00",
+      icon: 'person.png',
+    ),
+    ChatModel(
+      name: 'Dev group',
+      isGroup: true,
+      currentMessage: "hi everyone",
+      time: "13:00",
+      icon: 'group.png',
+    ),
+    ChatModel(
+      name: 'my bff group',
+      isGroup: true,
+      currentMessage: "chao may tml",
+      time: "5:00",
+      icon: 'group.png',
     ),
   ];
 
@@ -35,7 +56,10 @@ class _ChatPagesState extends State<ChatPages> {
         backgroundColor: Color(0xFF075E54),
         child: Icon(Icons.chat),
       ),
-      body: ListView(children: [CustomCard(), CustomCard()]),
+      body: ListView.builder(
+        itemCount: chats.length,
+        itemBuilder: (context, index) => CustomCard(chatModel: chats[index]),
+      ),
     );
   }
 }
