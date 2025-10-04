@@ -201,7 +201,13 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      backgroundColor: Colors.transparent,
+                                      context: context,
+                                      builder: (builder) => bottomSheet(),
+                                    );
+                                  },
                                   icon: const Icon(Icons.attach_file),
                                 ),
                                 IconButton(
@@ -265,6 +271,65 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget bottomSheet() {
+    return Container(
+      height: 278,
+      width: MediaQuery.of(context).size.width,
+      child: Card(
+        margin: EdgeInsets.all(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  iconCreate(
+                    Icons.insert_drive_file,
+                    Colors.indigo,
+                    "Document",
+                  ),
+                  SizedBox(width: 40),
+                  iconCreate(Icons.camera_alt, Colors.pink, "Camera"),
+                  SizedBox(width: 40),
+                  iconCreate(Icons.insert_photo, Colors.purple, "Gallery"),
+                ],
+              ),
+              SizedBox(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  iconCreate(Icons.headset_mic, Colors.orange, "Audio"),
+                  SizedBox(width: 40),
+                  iconCreate(Icons.location_pin, Colors.teal, "Location"),
+                  SizedBox(width: 40),
+                  iconCreate(Icons.person, Colors.blue, "Contact"),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget iconCreate(IconData icon, Color color, String text) {
+    return InkWell(
+      onTap: () {},
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: color,
+            child: Icon(icon, color: Colors.white, size: 29),
+          ),
+          SizedBox(height: 5),
+          Text(text),
+        ],
       ),
     );
   }
