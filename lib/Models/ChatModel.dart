@@ -5,6 +5,7 @@ class ChatModel {
   String? time;
   String? currentMessage;
   String? status;
+  bool selected = false; // for group
   ChatModel({
     this.name,
     this.icon,
@@ -12,5 +13,6 @@ class ChatModel {
     this.time,
     this.currentMessage,
     this.status,
+    this.selected = false,
   });
 }
