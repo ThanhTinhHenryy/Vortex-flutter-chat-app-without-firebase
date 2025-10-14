@@ -229,32 +229,22 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                 Expanded(
                   child: Container(
                     height: MediaQuery.of(context).size.height - 140,
-                    child: ListView(
+                    child: ListView.builder(
                       // reverse: true, // nếu muốn neo đáy
                       padding: const EdgeInsets.only(bottom: 8),
                       shrinkWrap: true,
-                      children: [
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                        // OwnMessageCard(),
-                        // ReplyMessageCard(),
-                      ],
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        if (messages[index].type == "source") {
+                          return OwnMessageCard(
+                            message: messages[index].message ?? 'null',
+                          );
+                        } else {
+                          return ReplyMessageCard(
+                            message: messages[index].message ?? 'null',
+                          );
+                        }
+                      },
                     ),
                   ),
                 ),
