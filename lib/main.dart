@@ -1,6 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:chat_app_flutter/Screens/CameraScreen.dart';
 import 'package:chat_app_flutter/Screens/HomeScreen.dart';
+import 'package:chat_app_flutter/Screens/LoginScreen.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -25,7 +26,8 @@ class MyApp extends StatelessWidget {
           secondary: Color(0xFF128C7E), // thay accentColor bằng secondary
         ),
       ),
-      home: HomeScreen(),
+      // home: HomeScreen(),
+      home: LoginScreen(),
     );
   }
 }

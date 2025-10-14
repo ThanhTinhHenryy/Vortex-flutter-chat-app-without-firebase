@@ -1,15 +1,22 @@
 import 'package:chat_app_flutter/CustomUI/OwnMessagesCard.dart';
 import 'package:chat_app_flutter/CustomUI/ReplyMesageCard.dart';
 import 'package:chat_app_flutter/Models/ChatModel.dart';
+import 'package:chat_app_flutter/Models/MessageModel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 
 class IndividualChatPage extends StatefulWidget {
-  const IndividualChatPage({super.key, required this.chatModel});
+  const IndividualChatPage({
+    super.key,
+    required this.chatModel,
+    required this.sourceChat,
+  });
   final ChatModel chatModel;
+  final ChatModel sourceChat;
 
   @override
   State<IndividualChatPage> createState() => _IndividualChatPageState();
@@ -21,6 +28,13 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   final _emojiScrollController = ScrollController();
   final _focusNode = FocusNode();
   bool _emojiShowing = false;
+
+  bool sendButton = false;
+
+  List<MessageModel> messages = [];
+
+  // ? docket.io
+  late IO.Socket socket;
 
   @override
   void dispose() {
@@ -38,6 +52,47 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
       _focusNode.unfocus(); // đóng bàn phím
       setState(() => _emojiShowing = true);
     }
+  }
+
+  void connect() {
+    socket = IO.io("http://192.168.1.110:1711", <String, dynamic>{
+      "transports": ['websocket'],
+      "autoConnect": false,
+    });
+    socket.connect();
+    socket.emit('signin', widget.sourceChat.id);
+    socket.onConnect((data) {
+      print("Connected");
+      socket.on("message", (msg) {
+        print(msg);
+        setMessage("destination", msg["message"]);
+      });
+    });
+    print(socket.connected);
+  }
+
+  void sendMessage(String message, int sourceId, int targetId) {
+    setMessage("source", message);
+    socket.emit("message", {
+      "message": message,
+      "sourceId": sourceId,
+      "targetId": targetId,
+      "at": DateTime.now().toIso8601String(),
+    });
+  }
+
+  void setMessage(String type, String message) {
+    MessageModel messageModel = MessageModel(type: type, message: message);
+    setState(() {
+      messages.add(messageModel);
+    });
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    connect();
   }
 
   @override
@@ -179,26 +234,26 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                       padding: const EdgeInsets.only(bottom: 8),
                       shrinkWrap: true,
                       children: [
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
-                        OwnMessageCard(),
-                        ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
+                        // OwnMessageCard(),
+                        // ReplyMessageCard(),
                       ],
                     ),
                   ),
@@ -224,6 +279,17 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                             child: TextFormField(
                               controller: _textController,
                               focusNode: _focusNode,
+                              onChanged: (value) {
+                                if (value.length > 0) {
+                                  setState(() {
+                                    sendButton = true;
+                                  });
+                                } else {
+                                  setState(() {
+                                    sendButton = false;
+                                  });
+                                }
+                              },
                               textAlignVertical: TextAlignVertical.center,
                               keyboardType: TextInputType.multiline,
                               maxLines: 5,
@@ -269,8 +335,20 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                             radius: 25,
                             backgroundColor: const Color(0xFF128C7E),
                             child: IconButton(
-                              onPressed: () {},
-                              icon: const Icon(Icons.mic, color: Colors.white),
+                              onPressed: () {
+                                if (sendButton) {
+                                  sendMessage(
+                                    _textController.text,
+                                    widget.sourceChat.id,
+                                    widget.chatModel.id,
+                                  );
+                                  _textController.clear();
+                                }
+                              },
+                              icon: Icon(
+                                sendButton ? Icons.send : Icons.mic,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),

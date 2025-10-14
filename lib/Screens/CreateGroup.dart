@@ -13,11 +13,11 @@ class CreateGroup extends StatefulWidget {
 
 class _CreateGroupState extends State<CreateGroup> {
   List<ChatModel> contacts = [
-    ChatModel(name: 'Yarushi', status: 'dang bun'),
-    ChatModel(name: 'Tinh', status: 'dang vui'),
-    ChatModel(name: 'Thanh Tinh', status: 'hihi'),
-    ChatModel(name: 'Trâm Ân', status: 'mún ăn canh mồng tơi'),
-    ChatModel(name: 'Ân tửng', status: 'mún ăn bún đậu'),
+    ChatModel(name: 'Yarushi', status: 'dang bun', id: 1),
+    ChatModel(name: 'Tinh', status: 'dang vui', id: 2),
+    ChatModel(name: 'Thanh Tinh', status: 'hihi', id: 3),
+    ChatModel(name: 'Trâm Ân', status: 'mún ăn canh mồng tơi', id: 4),
+    ChatModel(name: 'Ân tửng', status: 'mún ăn bún đậu', id: 5),
   ];
 
   List<ChatModel> groups = [];
