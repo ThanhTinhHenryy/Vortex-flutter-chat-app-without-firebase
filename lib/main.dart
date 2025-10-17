@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:chat_app_flutter/NewScreen/LandingScreen.dart';
 import 'package:chat_app_flutter/Screens/CameraScreen.dart';
 import 'package:chat_app_flutter/Screens/HomeScreen.dart';
 import 'package:chat_app_flutter/Screens/LoginScreen.dart';
@@ -27,7 +28,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
       // home: HomeScreen(),
-      home: LoginScreen(),
+      home: LandingScreen(),
     );
   }
 }
