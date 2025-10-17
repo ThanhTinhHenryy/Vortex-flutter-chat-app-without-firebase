@@ -72,6 +72,11 @@ flutter:
     - assets/svg/person_18.svg
     - assets/svg/group.svg
     - assets/whatsapp_Back.png
+    - assets/images/test_1.jpg
+    - assets/images/test_2.jpg
+    - assets/images/test_3.jpg
+    - assets/images/test_4.jpg
+    - assets/images/avatar.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

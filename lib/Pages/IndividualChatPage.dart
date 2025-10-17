@@ -29,9 +29,11 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   final _focusNode = FocusNode();
   bool _emojiShowing = false;
 
+  // Nhan tin
   bool sendButton = false;
-
   List<MessageModel> messages = [];
+
+  final ScrollController _scrollController = ScrollController();
 
   // ? docket.io
   late IO.Socket socket;
@@ -55,10 +57,14 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   }
 
   void connect() {
-    socket = IO.io("http://192.168.1.110:1711", <String, dynamic>{
-      "transports": ['websocket'],
-      "autoConnect": false,
-    });
+    // socket = IO.io("http://192.168.1.110:1711", <String, dynamic>{
+    socket = IO.io(
+      "https://guarded-journey-74962-fcbf9cb8d2c9.herokuapp.com/",
+      <String, dynamic>{
+        "transports": ['websocket'],
+        "autoConnect": false,
+      },
+    );
     socket.connect();
     socket.emit('signin', widget.sourceChat.id);
     socket.onConnect((data) {
@@ -66,6 +72,11 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
       socket.on("message", (msg) {
         print(msg);
         setMessage("destination", msg["message"]);
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       });
     });
     print(socket.connected);
@@ -82,7 +93,11 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   }
 
   void setMessage(String type, String message) {
-    MessageModel messageModel = MessageModel(type: type, message: message);
+    MessageModel messageModel = MessageModel(
+      type: type,
+      message: message,
+      time: DateTime.now().toString().substring(10, 16),
+    );
     setState(() {
       messages.add(messageModel);
     });
@@ -225,23 +240,26 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
             ),
             body: Column(
               children: [
-                // 1) Danh sách tin nhắn chiếm phần còn lại
+                // ! 1) Danh sách tin nhắn chiếm phần còn lại
                 Expanded(
                   child: Container(
                     height: MediaQuery.of(context).size.height - 140,
                     child: ListView.builder(
                       // reverse: true, // nếu muốn neo đáy
                       padding: const EdgeInsets.only(bottom: 8),
+                      controller: _scrollController,
                       shrinkWrap: true,
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         if (messages[index].type == "source") {
                           return OwnMessageCard(
                             message: messages[index].message ?? 'null',
+                            time: messages[index].time ?? 'null',
                           );
                         } else {
                           return ReplyMessageCard(
                             message: messages[index].message ?? 'null',
+                            time: messages[index].time ?? 'null',
                           );
                         }
                       },
@@ -327,12 +345,20 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                             child: IconButton(
                               onPressed: () {
                                 if (sendButton) {
+                                  _scrollController.animateTo(
+                                    _scrollController.position.maxScrollExtent,
+                                    duration: Duration(milliseconds: 300),
+                                    curve: Curves.easeOut,
+                                  );
                                   sendMessage(
                                     _textController.text,
                                     widget.sourceChat.id,
                                     widget.chatModel.id,
                                   );
                                   _textController.clear();
+                                  setState(() {
+                                    sendButton = false;
+                                  });
                                 }
                               },
                               icon: Icon(

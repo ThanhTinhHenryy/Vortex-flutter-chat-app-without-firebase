@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 class VideoView extends StatefulWidget {
   const VideoView({super.key, required this.path});
@@ -11,6 +12,10 @@ class VideoView extends StatefulWidget {
 }
 
 class _VideoViewState extends State<VideoView> {
+  // late VideoPlayerController _controller;
+
+  // _controller = VideoPlayerController.file(File(widget.path))..initialize().then((_) => setState(() {}));
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

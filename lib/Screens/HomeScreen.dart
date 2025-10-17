@@ -1,6 +1,7 @@
 import 'package:chat_app_flutter/Models/ChatModel.dart';
 import 'package:chat_app_flutter/Pages/CameraPage.dart';
 import 'package:chat_app_flutter/Pages/ChatPages.dart';
+import 'package:chat_app_flutter/Pages/StatusPage.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -74,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
             Tab(text: 'Chat'),
             Tab(icon: Icon(Icons.camera_alt)),
             Tab(text: 'Group Chat'),
-            Tab(text: 'Call'),
+            Tab(text: 'Status'),
             // Tab(text: 'TB'),
           ],
         ),
@@ -88,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen>
           ), // state ful ko lay truc tiep dc
           CameraPage(),
           Text('Group chat'),
-          Text('Call'),
+          StatusPage(),
         ],
       ),
     );
