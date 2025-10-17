@@ -1,3 +1,4 @@
+import 'package:chat_app_flutter/NewScreen/LoginPage.dart';
 import 'package:flutter/material.dart';
 
 class LandingScreen extends StatelessWidget {
@@ -50,7 +51,13 @@ class LandingScreen extends StatelessWidget {
               ),
               SizedBox(height: 20),
               InkWell(
-                onTap: () {},
+                onTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (builder) => LoginPage()),
+                    (route) => false,
+                  );
+                },
                 child: Container(
                   width: MediaQuery.of(context).size.width - 110,
                   height: 50,
