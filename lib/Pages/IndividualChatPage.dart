@@ -1,9 +1,15 @@
+import 'package:chat_app_flutter/CustomUI/OwnFileCard.dart';
 import 'package:chat_app_flutter/CustomUI/OwnMessagesCard.dart';
+import 'package:chat_app_flutter/CustomUI/ReplyFileCard.dart';
 import 'package:chat_app_flutter/CustomUI/ReplyMesageCard.dart';
 import 'package:chat_app_flutter/Models/ChatModel.dart';
 import 'package:chat_app_flutter/Models/MessageModel.dart';
+import 'package:chat_app_flutter/Screens/CameraScreen.dart';
+import 'package:chat_app_flutter/Screens/CameraView.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -29,7 +35,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   final _focusNode = FocusNode();
   bool _emojiShowing = false;
 
-  // Nhan tin
+  // ?Nhan tin
   bool sendButton = false;
   List<MessageModel> messages = [];
 
@@ -37,6 +43,80 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
 
   // ? docket.io
   late IO.Socket socket;
+
+  // ? image
+  // ImagePicker _picker = ImagePicker();
+  // late XFile file;
+  final ImagePicker _picker = ImagePicker(); // nên final
+  XFile? _picked; // thay vì late XFile
+
+  // 2) Các helper async (không dùng trực tiếp làm onTap)
+  // Future<void> _pickFromGallery() async {
+  //   final img = await _picker.pickImage(source: ImageSource.gallery);
+  //   if (img == null) return; // user cancel
+  //   setState(() {
+  //     _picked = img;
+  //   });
+  //   // TODO: upload/gửi ảnh
+  // }
+  // Future<void> _pickFromGallery() async {
+  //   try {
+  //     debugPrint('open gallery...');
+  //     final img = await _picker.pickImage(source: ImageSource.gallery);
+  //     debugPrint('picker done, img = ${img?.path}');
+  //     if (img == null) return;
+  //     setState(() => _picked = img);
+  //     if (!mounted) return;
+  //     Navigator.pop(context);
+  //   } catch (e, st) {
+  //     debugPrint('pickImage error: $e\n$st');
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(SnackBar(content: Text('Không mở được Gallery: $e')));
+  //   }
+  // }
+  void _onPickGalleryTap() async {
+    try {
+      debugPrint('open gallery...');
+      final img = await _picker.pickImage(source: ImageSource.gallery);
+      debugPrint('picker done, img = ${img?.path}');
+      if (img == null) return;
+
+      // Lưu nếu cần
+      setState(() => _picked = img);
+
+      if (!mounted) return;
+      Navigator.pop(context); // đóng bottom sheet trước
+
+      // rồi mới push sang trang preview/chỉnh sửa
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CameraView(
+            path: img.path, // <-- dùng img.path, không phải file
+            onImageSend: onImageSend, // callback gửi ảnh
+          ),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('pickImage error: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không mở được Gallery: $e')));
+    }
+  }
+
+  Future<void> _pickFromCamera() async {
+    final img = await _picker.pickImage(source: ImageSource.camera);
+    if (img == null) return;
+    setState(() {
+      _picked = img;
+    });
+    // TODO: upload/gửi ảnh
+  }
 
   @override
   void dispose() {
@@ -71,7 +151,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
       print("Connected");
       socket.on("message", (msg) {
         print(msg);
-        setMessage("destination", msg["message"]);
+        setMessage("destination", msg["message"], msg["path"]);
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: Duration(milliseconds: 300),
@@ -82,26 +162,30 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
     print(socket.connected);
   }
 
-  void sendMessage(String message, int sourceId, int targetId) {
-    setMessage("source", message);
+  void sendMessage(String message, int sourceId, int targetId, String path) {
+    setMessage("source", message, path);
     socket.emit("message", {
       "message": message,
       "sourceId": sourceId,
       "targetId": targetId,
+      "path": path,
       "at": DateTime.now().toIso8601String(),
     });
   }
 
-  void setMessage(String type, String message) {
+  void setMessage(String type, String message, String path) {
     MessageModel messageModel = MessageModel(
       type: type,
       message: message,
+      path: path,
       time: DateTime.now().toString().substring(10, 16),
     );
     setState(() {
       messages.add(messageModel);
     });
   }
+
+  void onImageSend(String path) {}
 
   @override
   void initState() {
@@ -264,6 +348,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                         }
                       },
                     ),
+                    // child: ListView(children: [OwnFileCard(), ReplyFileCard()]),
                   ),
                 ),
 
@@ -327,7 +412,15 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                                       icon: const Icon(Icons.attach_file),
                                     ),
                                     IconButton(
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (builder) =>
+                                                CameraScreen(),
+                                          ),
+                                        );
+                                      },
                                       icon: const Icon(Icons.camera_alt),
                                     ),
                                   ],
@@ -354,6 +447,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                                     _textController.text,
                                     widget.sourceChat.id,
                                     widget.chatModel.id,
+                                    "",
                                   );
                                   _textController.clear();
                                   setState(() {
@@ -430,22 +524,51 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                     Icons.insert_drive_file,
                     Colors.indigo,
                     "Document",
+                    () {},
                   ),
                   SizedBox(width: 40),
-                  iconCreate(Icons.camera_alt, Colors.pink, "Camera"),
+                  iconCreate(Icons.camera_alt, Colors.pink, "Camera", () {
+                    debugPrint('==> tap Camera');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (builder) => CameraScreen()),
+                    );
+                  }),
                   SizedBox(width: 40),
-                  iconCreate(Icons.insert_photo, Colors.purple, "Gallery"),
+                  iconCreate(Icons.insert_photo, Colors.purple, "Gallery", () {
+                    // file = (await _picker.pickImage(
+                    //   source: ImageSource.gallery,
+                    // ));
+                    debugPrint('==> tap Gallery');
+                    _onPickGalleryTap();
+
+                    // có thể chỉnh sửa hình ảnh trước khi gửi
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (builder) => CameraView(
+                    //       path: file.path,
+                    //       onImageSend: onImageSend,
+                    //     ),
+                    //   ),
+                    // );
+                  }),
                 ],
               ),
               SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  iconCreate(Icons.headset_mic, Colors.orange, "Audio"),
+                  iconCreate(Icons.headset_mic, Colors.orange, "Audio", () {}),
                   SizedBox(width: 40),
-                  iconCreate(Icons.location_pin, Colors.teal, "Location"),
+                  iconCreate(
+                    Icons.location_pin,
+                    Colors.teal,
+                    "Location",
+                    () {},
+                  ),
                   SizedBox(width: 40),
-                  iconCreate(Icons.person, Colors.blue, "Contact"),
+                  iconCreate(Icons.person, Colors.blue, "Contact", () {}),
                 ],
               ),
             ],
@@ -455,9 +578,14 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
     );
   }
 
-  Widget iconCreate(IconData icon, Color color, String text) {
+  Widget iconCreate(
+    IconData icon,
+    Color color,
+    String text,
+    GestureTapCallback? onTap,
+  ) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Column(
         children: [
           CircleAvatar(

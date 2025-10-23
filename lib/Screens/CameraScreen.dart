@@ -157,7 +157,9 @@ class _CameraScreenState extends State<CameraScreen> {
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => CameraView(path: shot.path)),
+        MaterialPageRoute(
+          builder: (_) => CameraView(path: shot.path, onImageSend: () {}),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
