@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class ReplyFileCard extends StatelessWidget {
-  const ReplyFileCard({super.key});
+  const ReplyFileCard({super.key, required this.path});
+  final String path;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +21,10 @@ class ReplyFileCard extends StatelessWidget {
             margin: EdgeInsets.all(2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Image.network(path, fit: BoxFit.cover),
             ),
           ),
         ),

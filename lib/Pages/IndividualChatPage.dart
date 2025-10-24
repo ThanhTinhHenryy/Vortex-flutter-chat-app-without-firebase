@@ -6,14 +6,26 @@ import 'package:chat_app_flutter/Models/ChatModel.dart';
 import 'package:chat_app_flutter/Models/MessageModel.dart';
 import 'package:chat_app_flutter/Screens/CameraScreen.dart';
 import 'package:chat_app_flutter/Screens/CameraView.dart';
+import 'package:chat_app_flutter/Screens/CropImageWebScreen.dart';
+import 'package:chat_app_flutter/Screens/CropImageScreen.dart';
+import 'package:chat_app_flutter/Services/image_resize.dart';
+import 'package:chat_app_flutter/Services/server_config.dart';
+import 'package:chat_app_flutter/Services/message_service.dart';
+import 'package:chat_app_flutter/Services/user_service.dart';
+import 'package:chat_app_flutter/Services/auth_service.dart';
+import 'package:chat_app_flutter/Services/socket_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
+import 'package:http_parser/http_parser.dart';
 
 class IndividualChatPage extends StatefulWidget {
   const IndividualChatPage({
@@ -38,74 +50,115 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   // ?Nhan tin
   bool sendButton = false;
   List<MessageModel> messages = [];
+  String _partnerName = '';
 
   final ScrollController _scrollController = ScrollController();
 
+  // Helper: scroll to the latest message
+  void _scrollToBottom({bool instant = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final double pos = _scrollController.position.maxScrollExtent;
+      if (instant) {
+        _scrollController.jumpTo(pos);
+      } else {
+        _scrollController.animateTo(
+          pos,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+  
   // ? docket.io
   late IO.Socket socket;
 
   // ? image
-  // ImagePicker _picker = ImagePicker();
-  // late XFile file;
-  final ImagePicker _picker = ImagePicker(); // nên final
-  XFile? _picked; // thay vì late XFile
+  final ImagePicker _picker = ImagePicker();
+  XFile? _picked;
 
-  // 2) Các helper async (không dùng trực tiếp làm onTap)
-  // Future<void> _pickFromGallery() async {
-  //   final img = await _picker.pickImage(source: ImageSource.gallery);
-  //   if (img == null) return; // user cancel
-  //   setState(() {
-  //     _picked = img;
-  //   });
-  //   // TODO: upload/gửi ảnh
-  // }
-  // Future<void> _pickFromGallery() async {
-  //   try {
-  //     debugPrint('open gallery...');
-  //     final img = await _picker.pickImage(source: ImageSource.gallery);
-  //     debugPrint('picker done, img = ${img?.path}');
-  //     if (img == null) return;
-  //     setState(() => _picked = img);
-  //     if (!mounted) return;
-  //     Navigator.pop(context);
-  //   } catch (e, st) {
-  //     debugPrint('pickImage error: $e\n$st');
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(
-  //       context,
-  //     ).showSnackBar(SnackBar(content: Text('Không mở được Gallery: $e')));
-  //   }
-  // }
+  Future<void> _ensurePartnerName() async {
+    final initial = widget.chatModel.name ?? 'User ${widget.chatModel.id}';
+    setState(() => _partnerName = initial);
+    try {
+      final Map<String, dynamic>? user =
+          await UserService.getById(widget.chatModel.id);
+      final String display = (user?['name'] as String?) ?? initial;
+      if (display.isNotEmpty && display != _partnerName) {
+        setState(() => _partnerName = display);
+      }
+    } catch (_) {}
+  }
+
+  void _appendHistory(List<Map<String, dynamic>> arr) {
+    final List<MessageModel> loaded = [];
+    for (final m in arr) {
+      final int sid = ((m['sourceId'] ?? m['senderId']) as num?)?.toInt() ?? -1;
+      final String path = (m['path'] ?? '') as String;
+      final String text = (m['message'] ?? '') as String;
+      final String type = sid == widget.sourceChat.id ? 'source' : 'destination';
+      String time = '';
+      final rawAt = (m['createdAt'] ?? m['at'])?.toString();
+      if (rawAt != null) {
+        final dt = DateTime.tryParse(rawAt);
+        if (dt != null) {
+          time = "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
+        }
+      }
+      loaded.add(MessageModel(type: type, message: text, path: path, time: time));
+    }
+    setState(() { messages = loaded; });
+    _scrollToBottom(instant: true);
+  }
+
+  Future<void> _loadHistory() async {
+    final arr = await MessageService.fetchMessages(widget.sourceChat.id, widget.chatModel.id);
+    _appendHistory(arr);
+  }
+
   void _onPickGalleryTap() async {
     try {
-      debugPrint('open gallery...');
       final img = await _picker.pickImage(source: ImageSource.gallery);
-      debugPrint('picker done, img = ${img?.path}');
       if (img == null) return;
-
-      // Lưu nếu cần
       setState(() => _picked = img);
-
       if (!mounted) return;
-      Navigator.pop(context); // đóng bottom sheet trước
-
-      // rồi mới push sang trang preview/chỉnh sửa
+      Navigator.pop(context);
+      final bytes = await img.readAsBytes();
+      if (foundation.kIsWeb) {
+        final croppedBytes = await Navigator.push<Uint8List>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CropImageWebScreen(bytes: bytes),
+          ),
+        );
+        if (croppedBytes == null) return;
+        await onImageSendBytes(croppedBytes);
+        return;
+      }
+      final croppedPath = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CropImageScreen(path: img.path),
+        ),
+      );
       if (!mounted) return;
-      Navigator.push(
+      final previewPath = croppedPath ?? img.path;
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => CameraView(
-            path: img.path, // <-- dùng img.path, không phải file
-            onImageSend: onImageSend, // callback gửi ảnh
+            path: previewPath,
+            onImageSend: onImageSend,
           ),
         ),
       );
     } catch (e, st) {
       debugPrint('pickImage error: $e\n$st');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Không mở được Gallery: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không mở được Gallery: $e')),
+      );
     }
   }
 
@@ -115,7 +168,6 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
     setState(() {
       _picked = img;
     });
-    // TODO: upload/gửi ảnh
   }
 
   @override
@@ -129,44 +181,36 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
   void _toggleEmoji() {
     if (_emojiShowing) {
       setState(() => _emojiShowing = false);
-      _focusNode.requestFocus(); // mở lại bàn phím
+      _focusNode.requestFocus();
     } else {
-      _focusNode.unfocus(); // đóng bàn phím
+      _focusNode.unfocus();
       setState(() => _emojiShowing = true);
     }
   }
 
-  void connect() {
-    // socket = IO.io("http://192.168.1.110:1711", <String, dynamic>{
-    socket = IO.io(
-      "https://guarded-journey-74962-fcbf9cb8d2c9.herokuapp.com/",
-      <String, dynamic>{
-        "transports": ['websocket'],
-        "autoConnect": false,
-      },
-    );
-    socket.connect();
-    socket.emit('signin', widget.sourceChat.id);
-    socket.onConnect((data) {
-      print("Connected");
-      socket.on("message", (msg) {
-        print(msg);
-        setMessage("destination", msg["message"], msg["path"]);
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
+  void connect() async {
+    final myId = (await AuthService.getUserId()) ?? widget.sourceChat.id;
+    await SocketService.instance.signin(myId);
+    socket = SocketService.instance.socket;
+    // Gỡ listener cũ để tránh nhân đôi
+    socket.off("message");
+    socket.on("message", (msg) {
+      final int targetId = (msg['targetId'] is num) ? (msg['targetId'] as num).toInt() : int.tryParse(msg['targetId'].toString()) ?? -1;
+      final int sourceId = (msg['sourceId'] is num) ? (msg['sourceId'] as num).toInt() : int.tryParse(msg['sourceId'].toString()) ?? -1;
+      final int partnerId = widget.chatModel.id;
+      if ((targetId == myId && sourceId == partnerId) || (sourceId == myId && targetId == partnerId)) {
+        setMessage(sourceId == myId ? "source" : "destination", msg["message"] ?? '', msg["path"] ?? '');
+        _scrollToBottom();
+      }
     });
-    print(socket.connected);
   }
 
-  void sendMessage(String message, int sourceId, int targetId, String path) {
+  Future<void> sendMessage(String message, int sourceId, int targetId, String path) async {
+    final myId = (await AuthService.getUserId()) ?? sourceId;
     setMessage("source", message, path);
-    socket.emit("message", {
+    SocketService.instance.emit("message", {
       "message": message,
-      "sourceId": sourceId,
+      "sourceId": myId,
       "targetId": targetId,
       "path": path,
       "at": DateTime.now().toIso8601String(),
@@ -183,42 +227,66 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
     setState(() {
       messages.add(messageModel);
     });
+    _scrollToBottom();
   }
 
-  void onImageSend(String path) {}
+  void onImageSend(String path) async {
+    try {
+      final resizedPath = await resizeImageFile(
+        path,
+        maxDimension: 1280,
+        quality: 85,
+      );
+      final uri = Uri.parse('${getServerBase()}$uploadEndpoint');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('img', resizedPath));
+      final streamed = await request.send();
+      final resp = await http.Response.fromStream(streamed);
+      final data = json.decode(resp.body) as Map<String, dynamic>;
+      final filename = (data['path'] ?? '') as String;
+      if (filename.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload thất bại')),
+        );
+        return;
+      }
+      final imageUrl = buildUploadUrl(filename);
+      sendMessage('', widget.sourceChat.id, widget.chatModel.id, imageUrl);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi upload: $e')),
+      );
+    }
+  }
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     connect();
+    _ensurePartnerName();
+    _loadHistory();
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewInsets = MediaQuery.of(
-      context,
-    ).viewInsets.bottom; // > 0 nếu bàn phím mở
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
 
     return PopScope(
-      // Nếu đang mở emoji hoặc bàn phím → tạm thời KHÔNG cho pop route
       canPop: !_emojiShowing && viewInsets == 0,
-
-      // API mới: có thêm tham số `result`
       onPopInvokedWithResult: (bool didPop, Object? result) {
-        if (didPop) return; // route đã pop rồi → không làm gì nữa
-
+        if (didPop) return;
         if (_emojiShowing) {
-          // Ưu tiên đóng emoji panel trước
           setState(() => _emojiShowing = false);
-          _focusNode.requestFocus(); // mở lại bàn phím nếu muốn
+          _focusNode.requestFocus();
         } else if (viewInsets > 0) {
-          // Nếu bàn phím đang mở, đóng bàn phím trước (lần back này không pop)
           _focusNode.unfocus();
         }
-        // Sau khi đóng emoji/keyboard, lần back tiếp theo mới pop route.
       },
-
       child: Stack(
         children: [
           Image.asset(
@@ -233,7 +301,6 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
               preferredSize: Size.fromHeight(60),
               child: AppBar(
                 leadingWidth: 80,
-                // titleSpacing: 0,
                 backgroundColor: Color(0xFF075E54),
                 leading: InkWell(
                   onTap: () {
@@ -252,7 +319,6 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                               : 'assets/svg/person.svg',
                           width: 28,
                           height: 28,
-                          // color: Color(#fff),
                         ),
                       ),
                     ],
@@ -267,13 +333,15 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.chatModel.name ?? "Unknown",
+                          _partnerName.isNotEmpty
+                              ? _partnerName
+                              : (widget.chatModel.name ?? "Unknown"),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
-                        ), // !fix
+                        ),
                         Text(
                           'last seen today at 07:30',
                           style: TextStyle(
@@ -289,9 +357,8 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                   IconButton(onPressed: () {}, icon: Icon(Icons.call)),
                   IconButton(onPressed: () {}, icon: Icon(Icons.video_call)),
                   PopupMenuButton<String>(
-                    // TODO: menu cho phan 3 cham
                     onSelected: (value) {
-                      print(value);
+                      debugPrint(value);
                     },
                     itemBuilder: (BuildContext contexts) {
                       return [
@@ -324,35 +391,36 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
             ),
             body: Column(
               children: [
-                // ! 1) Danh sách tin nhắn chiếm phần còn lại
                 Expanded(
                   child: Container(
                     height: MediaQuery.of(context).size.height - 140,
                     child: ListView.builder(
-                      // reverse: true, // nếu muốn neo đáy
                       padding: const EdgeInsets.only(bottom: 8),
                       controller: _scrollController,
                       shrinkWrap: true,
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
-                        if (messages[index].type == "source") {
-                          return OwnMessageCard(
-                            message: messages[index].message ?? 'null',
-                            time: messages[index].time ?? 'null',
-                          );
+                        final msg = messages[index];
+                        final hasImage = (msg.path ?? '').isNotEmpty;
+                        if ((msg.type ?? '') == "source") {
+                          return hasImage
+                              ? OwnFileCard(path: msg.path!)
+                              : OwnMessageCard(
+                                  message: msg.message ?? 'null',
+                                  time: msg.time ?? 'null',
+                                );
                         } else {
-                          return ReplyMessageCard(
-                            message: messages[index].message ?? 'null',
-                            time: messages[index].time ?? 'null',
-                          );
+                          return hasImage
+                              ? ReplyFileCard(path: msg.path!)
+                              : ReplyMessageCard(
+                                  message: msg.message ?? 'null',
+                                  time: msg.time ?? 'null',
+                                );
                         }
                       },
                     ),
-                    // child: ListView(children: [OwnFileCard(), ReplyFileCard()]),
                   ),
                 ),
-
-                // 2) Composer (thanh nhập). Khi emoji mở => không cần SafeArea bottom cho composer
                 SafeArea(
                   top: false,
                   left: false,
@@ -388,8 +456,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                               maxLines: 5,
                               minLines: 1,
                               onTap: () {
-                                if (_emojiShowing)
-                                  setState(() => _emojiShowing = false);
+                                if (_emojiShowing) setState(() => _emojiShowing = false);
                               },
                               decoration: InputDecoration(
                                 border: InputBorder.none,
@@ -416,8 +483,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (builder) =>
-                                                CameraScreen(),
+                                            builder: (builder) => CameraScreen(),
                                           ),
                                         );
                                       },
@@ -438,11 +504,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                             child: IconButton(
                               onPressed: () {
                                 if (sendButton) {
-                                  _scrollController.animateTo(
-                                    _scrollController.position.maxScrollExtent,
-                                    duration: Duration(milliseconds: 300),
-                                    curve: Curves.easeOut,
-                                  );
+                                  // Auto-scroll handled in setMessage -> sendMessage
                                   sendMessage(
                                     _textController.text,
                                     widget.sourceChat.id,
@@ -466,17 +528,13 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                     ),
                   ),
                 ),
-
-                // 3) Emoji panel ở DƯỚI composer, không chồng lấn
                 Offstage(
-                  offstage:
-                      !_emojiShowing ||
-                      viewInsets > 0, // nếu bàn phím mở thì ẩn emoji
+                  offstage: !_emojiShowing || viewInsets > 0,
                   child: SafeArea(
                     top: false,
                     left: false,
                     right: false,
-                    bottom: true, // kê lên trên gesture bar
+                    bottom: true,
                     child: EmojiPicker(
                       textEditingController: _textController,
                       scrollController: _emojiScrollController,
@@ -484,17 +542,8 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                         height: 280,
                         checkPlatformCompatibility: true,
                         emojiViewConfig: EmojiViewConfig(
-                          emojiSizeMax:
-                              28 *
-                              (foundation.defaultTargetPlatform ==
-                                      TargetPlatform.iOS
-                                  ? 1.2
-                                  : 1.0),
+                          emojiSizeMax: 28 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.2 : 1.0),
                         ),
-                        // categoryViewConfig: const CategoryViewConfig(
-                        //   initCategory: Category.SMILEYS,
-                        //   recentTabBehavior: RecentTabBehavior.NONE,
-                        // ),
                       ),
                     ),
                   ),
@@ -528,7 +577,6 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                   ),
                   SizedBox(width: 40),
                   iconCreate(Icons.camera_alt, Colors.pink, "Camera", () {
-                    debugPrint('==> tap Camera');
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (builder) => CameraScreen()),
@@ -536,22 +584,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                   }),
                   SizedBox(width: 40),
                   iconCreate(Icons.insert_photo, Colors.purple, "Gallery", () {
-                    // file = (await _picker.pickImage(
-                    //   source: ImageSource.gallery,
-                    // ));
-                    debugPrint('==> tap Gallery');
                     _onPickGalleryTap();
-
-                    // có thể chỉnh sửa hình ảnh trước khi gửi
-                    // Navigator.push(
-                    //   context,
-                    //   MaterialPageRoute(
-                    //     builder: (builder) => CameraView(
-                    //       path: file.path,
-                    //       onImageSend: onImageSend,
-                    //     ),
-                    //   ),
-                    // );
                   }),
                 ],
               ),
@@ -598,5 +631,36 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
         ],
       ),
     );
+  }
+
+  Future<void> onImageSendBytes(Uint8List bytes) async {
+    try {
+      final uri = Uri.parse('${getServerBase()}$uploadEndpoint');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(http.MultipartFile.fromBytes(
+        'img',
+        bytes,
+        filename: 'upload.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ));
+      final streamed = await request.send();
+      final resp = await http.Response.fromStream(streamed);
+      final data = json.decode(resp.body) as Map<String, dynamic>;
+      final filename = (data['path'] ?? '') as String;
+      if (filename.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload thất bại')),
+        );
+        return;
+      }
+      final imageUrl = buildUploadUrl(filename);
+      sendMessage('', widget.sourceChat.id, widget.chatModel.id, imageUrl);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload ảnh thất bại: $e')),
+      );
+    }
   }
 }

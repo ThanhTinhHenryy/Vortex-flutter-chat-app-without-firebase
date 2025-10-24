@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 class OwnFileCard extends StatelessWidget {
@@ -8,6 +7,7 @@ class OwnFileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isNetwork = path.startsWith('http');
     return Align(
       alignment: Alignment.centerRight,
       child: Padding(
@@ -24,7 +24,12 @@ class OwnFileCard extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Image.file(File(path)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: isNetwork
+                  ? Image.network(path, fit: BoxFit.cover)
+                  : Image.file(File(path), fit: BoxFit.cover),
+            ),
           ),
         ),
       ),

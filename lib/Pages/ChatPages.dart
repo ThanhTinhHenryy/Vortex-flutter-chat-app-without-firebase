@@ -17,46 +17,9 @@ class ChatPages extends StatefulWidget {
 }
 
 class _ChatPagesState extends State<ChatPages> {
-  // List<ChatModel> chats = [
-  //   ChatModel(
-  //     name: 'Yarushi',
-  //     isGroup: false,
-  //     currentMessage: "Hello",
-  //     time: "3:00",
-  //     icon: 'person.png',
-  //   ),
-  //   ChatModel(
-  //     name: 'Thanh Tinh',
-  //     isGroup: false,
-  //     currentMessage: "whats up",
-  //     time: "7:00",
-  //     icon: 'person.png',
-  //   ),
-  //   ChatModel(
-  //     name: 'puu',
-  //     isGroup: false,
-  //     currentMessage: "mun bu",
-  //     time: "2:00",
-  //     icon: 'person.png',
-  //   ),
-  //   ChatModel(
-  //     name: 'Dev group',
-  //     isGroup: true,
-  //     currentMessage: "hi everyone",
-  //     time: "13:00",
-  //     icon: 'group.png',
-  //   ),
-  //   ChatModel(
-  //     name: 'my bff group',
-  //     isGroup: true,
-  //     currentMessage: "chao may tml",
-  //     time: "5:00",
-  //     icon: 'group.png',
-  //   ),
-  // ];
-
   @override
   Widget build(BuildContext context) {
+    final isEmpty = widget.chatModels.isEmpty;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -68,13 +31,21 @@ class _ChatPagesState extends State<ChatPages> {
         backgroundColor: Color(0xFF075E54),
         child: Icon(Icons.chat),
       ),
-      body: ListView.builder(
-        itemCount: widget.chatModels.length,
-        itemBuilder: (context, index) => CustomCard(
-          chatModel: widget.chatModels[index],
-          sourceChat: widget.sourceChat,
-        ),
-      ),
+      body: isEmpty
+          ? const Center(
+              child: Text(
+                'Chưa có cuộc trò chuyện\nHãy tìm bạn bè và bắt đầu nhắn tin!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
+              ),
+            )
+          : ListView.builder(
+              itemCount: widget.chatModels.length,
+              itemBuilder: (context, index) => CustomCard(
+                chatModel: widget.chatModels[index],
+                sourceChat: widget.sourceChat,
+              ),
+            ),
     );
   }
 }
