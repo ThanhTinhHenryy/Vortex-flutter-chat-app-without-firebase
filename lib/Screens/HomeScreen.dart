@@ -13,6 +13,7 @@ import 'package:chat_app_flutter/Services/server_config.dart';
 import 'package:chat_app_flutter/Services/user_service.dart';
 import 'package:chat_app_flutter/Services/message_service.dart';
 import 'package:chat_app_flutter/Services/socket_service.dart';
+import 'package:chat_app_flutter/Screens/UserProfileScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -130,55 +131,69 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF075E54),
-        foregroundColor: Colors.white,
-        title: const Text('Votex Chat'),
+        backgroundColor: const Color(0xFF075E54),
+        title: const Text('WhatsApp'),
         actions: [
-          IconButton(onPressed: () { _loadConversations(); }, icon: Icon(Icons.refresh)),
-          IconButton(onPressed: () {}, icon: Icon(Icons.search)),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () async {
+              final myId = await AuthService.getUserId();
+              if (myId == null) return;
+              // Navigate to profile screen of current user
+              // ignore: use_build_context_synchronously
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserProfileScreen(userId: myId),
+                ),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'Logout') {
-                await AuthService.logout();
-                if (!mounted) return;
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-              if (value == 'Find Friends') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
-                );
+              switch (value) {
+                case 'Find Friends':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
+                  );
+                  break;
+                case 'Logout':
+                  await AuthService.logout();
+                  if (!mounted) return;
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                  break;
+                default:
+                  debugPrint('Menu: ' + value);
               }
             },
             itemBuilder: (BuildContext contexts) {
-              return [
-                PopupMenuItem(child: Text('New Group'), value: "New Group"),
-                PopupMenuItem(value: "New broadcast", child: Text('New broadcast')),
-                PopupMenuItem(value: "Find Friends", child: Text('Find Friends')),
-                PopupMenuItem(value: "WhatsApp Webs", child: Text('WhatsApp Webs')),
-                PopupMenuItem(value: "Started Message", child: Text('Started Message')),
-                PopupMenuItem(value: "New Call", child: Text('New Call')),
-                PopupMenuItem(value: "Settings", child: Text('Settings')),
-                const PopupMenuItem(value: "Logout", child: Text('Logout')),
+              return const [
+                PopupMenuItem(value: 'New Group', child: Text('New Group')),
+                PopupMenuItem(value: 'New broadcast', child: Text('New broadcast')),
+                PopupMenuItem(value: 'Find Friends', child: Text('Find Friends')),
+                PopupMenuItem(value: 'WhatsApp Webs', child: Text('WhatsApp Webs')),
+                PopupMenuItem(value: 'Started Message', child: Text('Started Message')),
+                PopupMenuItem(value: 'New Call', child: Text('New Call')),
+                PopupMenuItem(value: 'Settings', child: Text('Settings')),
+                PopupMenuItem(value: 'Logout', child: Text('Logout')),
               ];
             },
           ),
         ],
-        bottom: TabBar(
-          labelStyle: TextStyle(color: Colors.white),
-          indicatorColor: Colors.white,
-          controller: _tabController,
-          tabs: [
-            Tab(text: 'Chat'),
-            Tab(icon: Icon(Icons.camera_alt)),
-            Tab(text: 'Group Chat'),
-            Tab(text: 'Status'),
-          ],
-        ),
       ),
       body: TabBarView(
         controller: _tabController,

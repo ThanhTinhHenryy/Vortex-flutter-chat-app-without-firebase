@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:chat_app_flutter/Screens/FullImageView.dart';
 
 class OwnFileCard extends StatelessWidget {
   const OwnFileCard({super.key, required this.path});
@@ -24,11 +25,22 @@ class OwnFileCard extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
-            child: ClipRRect(
+            child: InkWell(
               borderRadius: BorderRadius.circular(15),
-              child: isNetwork
-                  ? Image.network(path, fit: BoxFit.cover)
-                  : Image.file(File(path), fit: BoxFit.cover),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FullImageView(path: path),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: isNetwork
+                    ? Image.network(path, fit: BoxFit.cover)
+                    : Image.file(File(path), fit: BoxFit.cover),
+              ),
             ),
           ),
         ),

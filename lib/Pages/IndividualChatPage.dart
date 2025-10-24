@@ -8,6 +8,7 @@ import 'package:chat_app_flutter/Screens/CameraScreen.dart';
 import 'package:chat_app_flutter/Screens/CameraView.dart';
 import 'package:chat_app_flutter/Screens/CropImageWebScreen.dart';
 import 'package:chat_app_flutter/Screens/CropImageScreen.dart';
+import 'package:chat_app_flutter/Screens/UserProfileScreen.dart';
 import 'package:chat_app_flutter/Services/image_resize.dart';
 import 'package:chat_app_flutter/Services/server_config.dart';
 import 'package:chat_app_flutter/Services/message_service.dart';
@@ -56,7 +57,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
 
   // Helper: scroll to the latest message
   void _scrollToBottom({bool instant = false}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!_scrollController.hasClients) return;
       final double pos = _scrollController.position.maxScrollExtent;
       if (instant) {
@@ -67,6 +68,14 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
+      }
+      // Fallback: re-assert bottom after a short delay in case layout is not yet stable
+      await Future.delayed(const Duration(milliseconds: 60));
+      if (!_scrollController.hasClients) return;
+      final double latestPos = _scrollController.position.maxScrollExtent;
+      // If not at bottom yet, force a jump to the bottom
+      if ((_scrollController.offset - latestPos).abs() > 1) {
+        _scrollController.jumpTo(latestPos);
       }
     });
   }
@@ -301,7 +310,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
               preferredSize: Size.fromHeight(60),
               child: AppBar(
                 leadingWidth: 80,
-                backgroundColor: Color(0xFF075E54),
+                backgroundColor: const Color(0xFF075E54),
                 leading: InkWell(
                   onTap: () {
                     Navigator.pop(context);
@@ -356,6 +365,19 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
                 actions: [
                   IconButton(onPressed: () {}, icon: Icon(Icons.call)),
                   IconButton(onPressed: () {}, icon: Icon(Icons.video_call)),
+                  IconButton(
+                    icon: const Icon(Icons.info_outline),
+                    onPressed: () {
+                      final otherId = widget.chatModel.id;
+                      if (otherId == null) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UserProfileScreen(userId: otherId),
+                        ),
+                      );
+                    },
+                  ),
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       debugPrint(value);

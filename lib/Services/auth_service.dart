@@ -85,4 +85,9 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userNameKey);
   }
+
+  static Future<void> setUserName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userNameKey, name);
+  }
 }
