@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class CameraView extends StatelessWidget {
   const CameraView({super.key, required this.path, required this.onImageSend});
   final String path;
-  final Function onImageSend;
+  final Future<void> Function(String) onImageSend;
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +52,16 @@ class CameraView extends StatelessWidget {
                     size: 27,
                   ),
                   suffixIcon: InkWell(
-                    onTap: () {
-                      onImageSend(path);
+                    onTap: () async {
+                      try {
+                        await onImageSend(path);
+                        Navigator.pop(context);
+                      } catch (e) {
+                        // Nếu có lỗi, hiển thị snack và không pop
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Gửi ảnh thất bại: $e')),
+                        );
+                      }
                     },
                     child: CircleAvatar(
                       radius: 27,

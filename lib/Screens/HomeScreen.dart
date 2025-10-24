@@ -2,6 +2,8 @@ import 'package:chat_app_flutter/Models/ChatModel.dart';
 import 'package:chat_app_flutter/Pages/CameraPage.dart';
 import 'package:chat_app_flutter/Pages/ChatPages.dart';
 import 'package:chat_app_flutter/Pages/StatusPage.dart';
+import 'package:chat_app_flutter/Pages/GroupsPage.dart'
+    as groups_page; // new
 import 'package:chat_app_flutter/Screens/LoginScreen.dart';
 import 'package:chat_app_flutter/Services/auth_service.dart';
 import 'package:chat_app_flutter/Services/conversation_service.dart';
@@ -32,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   TabController? _tabController;
   List<ChatModel> _chatModels = [];
+  List<Map<String, dynamic>> _groupConversations = []; // new
   bool _loading = false;
   Timer? _pollTimer;
   IO.Socket? _socket;
@@ -47,57 +50,89 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _loadConversations() async {
     if (_loading) return;
-    setState(() { _loading = true; });
+    setState(() {
+      _loading = true;
+    });
     final myId = (await AuthService.getUserId()) ?? widget.sourceChat.id;
     print("👤 Current user ID (with fallback): $myId");
     if (myId != null) {
       final convs = await ConversationService.fetchConversations(myId);
       print("💬 Received ${convs.length} conversations");
-      final List<ChatModel> mapped = [];
+      final List<ChatModel> dms = [];
+      final List<Map<String, dynamic>> groups = [];
       for (final c in convs) {
-        final List<dynamic> parts = (c['participants'] as List<dynamic>? ?? []);
-        int otherId = myId;
-        for (final p in parts) {
-          final pid = (p is num) ? p.toInt() : int.tryParse(p.toString()) ?? myId;
-          if (pid != myId) { otherId = pid; break; }
-        }
-        // Lấy tên người dùng theo ID
-        final u = await UserService.getById(otherId);
-        final displayName = ((u?['name'] as String?)?.isNotEmpty == true)
-            ? (u!['name'] as String)
-            : 'User $otherId';
-
-        // Lấy tin nhắn cuối cùng để hiển thị preview
-        String time = '';
-        String currentMessage = '';
-        try {
-          final msgs = await MessageService.fetchMessages(myId, otherId);
-          if (msgs.isNotEmpty) {
-            final last = msgs.last;
-            currentMessage = MessageService.summarize(last);
-            final rawAt = (last['createdAt'] ?? last['at'])?.toString();
-            if (rawAt != null) {
-              final dt = DateTime.tryParse(rawAt);
+        final bool isGroup = c['isGroup'] == true;
+        if (isGroup) {
+          // Group conversation mapping
+          String time = '';
+          String preview = '';
+          try {
+            final msgs = await MessageService.fetchByConversationId((c['_id'] ?? c['id']).toString());
+            if (msgs.isNotEmpty) {
+              final last = msgs.last;
+              preview = MessageService.summarize(last);
+              final rawAt = (last['createdAt'] ?? last['at'])?.toString();
+              final dt = rawAt != null ? DateTime.tryParse(rawAt) : null;
               if (dt != null) {
-                time = "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
+                time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
               }
             }
+          } catch (_) {}
+          groups.add({
+            ...c,
+            'lastMessage': preview,
+            'time': time,
+          });
+        } else {
+          // Direct message mapping (existing behavior)
+          final List<dynamic> parts = (c['participants'] as List<dynamic>? ?? []);
+          int otherId = myId;
+          for (final p in parts) {
+            final pid = (p is num) ? p.toInt() : int.tryParse(p.toString()) ?? myId;
+            if (pid != myId) {
+              otherId = pid;
+              break;
+            }
           }
-        } catch (_) {}
-
-        mapped.add(ChatModel(
-          id: otherId,
-          name: displayName,
-          isGroup: false,
-          icon: 'person.png',
-          time: time,
-          currentMessage: currentMessage,
-          status: '',
-        ));
+          final u = await UserService.getById(otherId);
+          final displayName = ((u?['name'] as String?)?.isNotEmpty == true)
+              ? (u!['name'] as String)
+              : 'User $otherId';
+          String time = '';
+          String currentMessage = '';
+          try {
+            final msgs = await MessageService.fetchMessages(myId, otherId);
+            if (msgs.isNotEmpty) {
+              final last = msgs.last;
+              currentMessage = MessageService.summarize(last);
+              final rawAt = (last['createdAt'] ?? last['at'])?.toString();
+              final dt = rawAt != null ? DateTime.tryParse(rawAt) : null;
+              if (dt != null) {
+                time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+              }
+            }
+          } catch (_) {}
+          dms.add(ChatModel(
+            id: otherId,
+            name: displayName,
+            isGroup: false,
+            icon: 'person.png',
+            time: time,
+            currentMessage: currentMessage,
+            status: '',
+          ));
+        }
       }
-      setState(() { _chatModels = mapped; });
+      setState(() {
+        _chatModels = dms;
+        _groupConversations = groups;
+      });
     }
-    if (mounted) setState(() { _loading = false; });
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
   void _initSocket() async {
@@ -133,6 +168,15 @@ class _HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         backgroundColor: const Color(0xFF075E54),
         title: const Text('WhatsApp'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Chats'),
+            Tab(icon: Icon(Icons.camera_alt)),
+            Tab(text: 'Groups'),
+            Tab(text: 'Status'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -203,7 +247,10 @@ class _HomeScreenState extends State<HomeScreen>
             sourceChat: widget.sourceChat,
           ),
           CameraPage(),
-          Text('Group chat'),
+          groups_page.GroupsPage(
+            conversations: _groupConversations,
+            sourceChat: widget.sourceChat,
+          ),
           StatusPage(),
         ],
       ),

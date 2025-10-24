@@ -46,14 +46,17 @@ class _CropImageScreenState extends State<CropImageScreen> {
     try {
       switch (result) {
         case CropSuccess(:final croppedImage):
+          // Prefer re-encode to JPEG; if decode fails, use original bytes
           final decoded = img.decodeImage(croppedImage);
-          final jpg = img.encodeJpg(decoded!, quality: 90);
+          final Uint8List outBytes = decoded != null
+              ? Uint8List.fromList(img.encodeJpg(decoded, quality: 90))
+              : croppedImage;
 
           final tempDir = await getTemporaryDirectory();
           final outName = 'cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
           final outPath = p.join(tempDir.path, outName);
           final f = File(outPath);
-          await f.writeAsBytes(jpg, flush: true);
+          await f.writeAsBytes(outBytes, flush: true);
 
           if (!mounted) return;
           Navigator.pop(context, outPath);

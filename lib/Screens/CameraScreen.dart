@@ -158,7 +158,10 @@ class _CameraScreenState extends State<CameraScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CameraView(path: shot.path, onImageSend: () {}),
+          builder: (_) => CameraView(
+            path: shot.path,
+            onImageSend: (p) async {},
+          ),
         ),
       );
     } catch (e) {

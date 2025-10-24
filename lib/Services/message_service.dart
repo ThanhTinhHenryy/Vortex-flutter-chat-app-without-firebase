@@ -28,6 +28,27 @@ class MessageService {
     return arr;
   }
 
+  // New: fetch by conversationId (group or 1-1)
+  static Future<List<Map<String, dynamic>>> fetchByConversationId(String conversationId) async {
+    final uri = Uri.parse('${getServerBase()}/routes/messages/conversation/$conversationId');
+    print('🔎 GET messages by conversation: $uri');
+    final res = await http.get(uri);
+    print('📡 messages status: ${res.statusCode}');
+    if (res.statusCode < 200 || res.statusCode >= 300) return [];
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      print('❌ Invalid JSON for messages');
+      return [];
+    }
+    final arr = (data['messages'] as List<dynamic>? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    print('✅ messages fetched: ${arr.length}');
+    return arr;
+  }
+
   static String summarize(Map<String, dynamic> m) {
     final path = (m['path'] ?? '') as String;
     final msg = (m['message'] ?? '') as String;

@@ -239,7 +239,7 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
     _scrollToBottom();
   }
 
-  void onImageSend(String path) async {
+  Future<void> onImageSend(String path) async {
     try {
       final resizedPath = await resizeImageFile(
         path,
