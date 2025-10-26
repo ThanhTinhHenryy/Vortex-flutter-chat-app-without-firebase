@@ -2,8 +2,7 @@ import 'package:chat_app_flutter/Models/ChatModel.dart';
 import 'package:chat_app_flutter/Pages/CameraPage.dart';
 import 'package:chat_app_flutter/Pages/ChatPages.dart';
 import 'package:chat_app_flutter/Pages/StatusPage.dart';
-import 'package:chat_app_flutter/Pages/GroupsPage.dart'
-    as groups_page; // new
+import 'package:chat_app_flutter/Pages/GroupsPage.dart' as groups_page; // new
 import 'package:chat_app_flutter/Screens/LoginScreen.dart';
 import 'package:chat_app_flutter/Services/auth_service.dart';
 import 'package:chat_app_flutter/Services/conversation_service.dart';
@@ -44,7 +43,10 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this, initialIndex: 0);
     _loadConversations();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _loadConversations());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadConversations(),
+    );
     _initSocket();
   }
 
@@ -67,28 +69,30 @@ class _HomeScreenState extends State<HomeScreen>
           String time = '';
           String preview = '';
           try {
-            final msgs = await MessageService.fetchByConversationId((c['_id'] ?? c['id']).toString());
+            final msgs = await MessageService.fetchByConversationId(
+              (c['_id'] ?? c['id']).toString(),
+            );
             if (msgs.isNotEmpty) {
               final last = msgs.last;
               preview = MessageService.summarize(last);
               final rawAt = (last['createdAt'] ?? last['at'])?.toString();
               final dt = rawAt != null ? DateTime.tryParse(rawAt) : null;
               if (dt != null) {
-                time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                time =
+                    "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
               }
             }
           } catch (_) {}
-          groups.add({
-            ...c,
-            'lastMessage': preview,
-            'time': time,
-          });
+          groups.add({...c, 'lastMessage': preview, 'time': time});
         } else {
           // Direct message mapping (existing behavior)
-          final List<dynamic> parts = (c['participants'] as List<dynamic>? ?? []);
+          final List<dynamic> parts =
+              (c['participants'] as List<dynamic>? ?? []);
           int otherId = myId;
           for (final p in parts) {
-            final pid = (p is num) ? p.toInt() : int.tryParse(p.toString()) ?? myId;
+            final pid = (p is num)
+                ? p.toInt()
+                : int.tryParse(p.toString()) ?? myId;
             if (pid != myId) {
               otherId = pid;
               break;
@@ -108,19 +112,22 @@ class _HomeScreenState extends State<HomeScreen>
               final rawAt = (last['createdAt'] ?? last['at'])?.toString();
               final dt = rawAt != null ? DateTime.tryParse(rawAt) : null;
               if (dt != null) {
-                time = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                time =
+                    "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
               }
             }
           } catch (_) {}
-          dms.add(ChatModel(
-            id: otherId,
-            name: displayName,
-            isGroup: false,
-            icon: 'person.png',
-            time: time,
-            currentMessage: currentMessage,
-            status: '',
-          ));
+          dms.add(
+            ChatModel(
+              id: otherId,
+              name: displayName,
+              isGroup: false,
+              icon: 'person.png',
+              time: time,
+              currentMessage: currentMessage,
+              status: '',
+            ),
+          );
         }
       }
       setState(() {
@@ -144,8 +151,12 @@ class _HomeScreenState extends State<HomeScreen>
     // Dùng socket chung
     _socket = SocketService.instance.socket;
     _socket!.on('message', (msg) {
-      final int targetId = (msg['targetId'] is num) ? (msg['targetId'] as num).toInt() : int.tryParse(msg['targetId'].toString()) ?? -1;
-      final int sourceId = (msg['sourceId'] is num) ? (msg['sourceId'] as num).toInt() : int.tryParse(msg['sourceId'].toString()) ?? -1;
+      final int targetId = (msg['targetId'] is num)
+          ? (msg['targetId'] as num).toInt()
+          : int.tryParse(msg['targetId'].toString()) ?? -1;
+      final int sourceId = (msg['sourceId'] is num)
+          ? (msg['sourceId'] as num).toInt()
+          : int.tryParse(msg['sourceId'].toString()) ?? -1;
       if (targetId == myId || sourceId == myId) {
         _loadConversations();
       }
@@ -167,8 +178,10 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF075E54),
+        foregroundColor: Colors.white,
         title: const Text('WhatsApp'),
         bottom: TabBar(
+          labelColor: Colors.white,
           controller: _tabController,
           tabs: const [
             Tab(text: 'Chats'),
@@ -208,7 +221,9 @@ class _HomeScreenState extends State<HomeScreen>
                 case 'Find Friends':
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const FindFriendsScreen(),
+                    ),
                   );
                   break;
                 case 'Logout':
@@ -227,10 +242,22 @@ class _HomeScreenState extends State<HomeScreen>
             itemBuilder: (BuildContext contexts) {
               return const [
                 PopupMenuItem(value: 'New Group', child: Text('New Group')),
-                PopupMenuItem(value: 'New broadcast', child: Text('New broadcast')),
-                PopupMenuItem(value: 'Find Friends', child: Text('Find Friends')),
-                PopupMenuItem(value: 'WhatsApp Webs', child: Text('WhatsApp Webs')),
-                PopupMenuItem(value: 'Started Message', child: Text('Started Message')),
+                PopupMenuItem(
+                  value: 'New broadcast',
+                  child: Text('New broadcast'),
+                ),
+                PopupMenuItem(
+                  value: 'Find Friends',
+                  child: Text('Find Friends'),
+                ),
+                PopupMenuItem(
+                  value: 'WhatsApp Webs',
+                  child: Text('WhatsApp Webs'),
+                ),
+                PopupMenuItem(
+                  value: 'Started Message',
+                  child: Text('Started Message'),
+                ),
                 PopupMenuItem(value: 'New Call', child: Text('New Call')),
                 PopupMenuItem(value: 'Settings', child: Text('Settings')),
                 PopupMenuItem(value: 'Logout', child: Text('Logout')),
@@ -242,10 +269,7 @@ class _HomeScreenState extends State<HomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          ChatPages(
-            chatModels: _chatModels,
-            sourceChat: widget.sourceChat,
-          ),
+          ChatPages(chatModels: _chatModels, sourceChat: widget.sourceChat),
           CameraPage(),
           groups_page.GroupsPage(
             conversations: _groupConversations,

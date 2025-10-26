@@ -2,6 +2,15 @@ import 'package:camera/camera.dart';
 import 'package:chat_app_flutter/Screens/CameraView.dart';
 import 'package:chat_app_flutter/Screens/VideoView.dart';
 import 'package:flutter/material.dart';
+import 'package:chat_app_flutter/Screens/SelectRecipient.dart';
+import 'package:chat_app_flutter/Services/server_config.dart';
+import 'package:chat_app_flutter/Services/image_resize.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:chat_app_flutter/Screens/CropImageScreen.dart';
+import 'package:chat_app_flutter/Screens/CropImageWebScreen.dart';
+import 'dart:typed_data';
 
 late List<CameraDescription> cameras;
 
@@ -155,12 +164,72 @@ class _CameraScreenState extends State<CameraScreen> {
       await cameraValue;
       final XFile shot = await _cameraController.takePicture();
       if (!mounted) return;
-      Navigator.push(
+      if (kIsWeb) {
+        final Uint8List bytes = await shot.readAsBytes();
+        final croppedBytes = await Navigator.push<Uint8List>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CropImageWebScreen(bytes: bytes),
+          ),
+        );
+        if (croppedBytes == null) return;
+        final uri = Uri.parse('${getServerBase()}$uploadEndpoint');
+        final req = http.MultipartRequest('POST', uri);
+        req.files.add(http.MultipartFile.fromBytes('img', croppedBytes, filename: 'capture.jpg'));
+        final streamed = await req.send();
+        final resp = await http.Response.fromStream(streamed);
+        final data = json.decode(resp.body) as Map<String, dynamic>;
+        final filename = (data['path'] as String?) ?? '';
+        if (filename.isEmpty) {
+          throw Exception('Upload thất bại');
+        }
+        final imageUrl = buildUploadUrl(filename);
+        final ok = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SelectRecipientScreen(imageUrl: imageUrl),
+          ),
+        );
+        if (ok != true) {
+          throw Exception('Bạn chưa chọn người nhận');
+        }
+        return;
+      }
+      final croppedPath = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CropImageScreen(path: shot.path),
+        ),
+      );
+      final previewPath = croppedPath ?? shot.path;
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => CameraView(
-            path: shot.path,
-            onImageSend: (p) async {},
+            path: previewPath,
+            onImageSend: (p) async {
+              final resizedPath = await resizeImageFile(p, maxDimension: 1280, quality: 85);
+              final uri = Uri.parse('${getServerBase()}$uploadEndpoint');
+              final req = http.MultipartRequest('POST', uri);
+              req.files.add(await http.MultipartFile.fromPath('img', resizedPath));
+              final streamed = await req.send();
+              final resp = await http.Response.fromStream(streamed);
+              final data = json.decode(resp.body) as Map<String, dynamic>;
+              final filename = (data['path'] as String?) ?? '';
+              if (filename.isEmpty) {
+                throw Exception('Upload thất bại');
+              }
+              final imageUrl = buildUploadUrl(filename);
+              final ok = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SelectRecipientScreen(imageUrl: imageUrl),
+                ),
+              );
+              if (ok != true) {
+                throw Exception('Bạn chưa chọn người nhận');
+              }
+            },
           ),
         ),
       );
