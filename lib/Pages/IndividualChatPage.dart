@@ -262,9 +262,6 @@ class _IndividualChatPageState extends State<IndividualChatPage> {
       }
       final imageUrl = buildUploadUrl(filename);
       sendMessage('', widget.sourceChat.id, widget.chatModel.id, imageUrl);
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

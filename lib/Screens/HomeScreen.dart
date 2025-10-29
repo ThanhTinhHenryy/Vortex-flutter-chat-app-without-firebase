@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen>
       appBar: AppBar(
         backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
-        title: const Text('WhatsApp'),
+        title: const Text('VORTEX'),
         bottom: TabBar(
           labelColor: Colors.white,
           controller: _tabController,
